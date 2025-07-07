@@ -1,0 +1,32 @@
+WHITESPACE = _{ " " | "\t" | "\r" }
+NEWLINE = _{ "\n" }
+COMMENT = _{ ";" ~ (!NEWLINE ~ ANY)* }
+
+program = { SOI ~ (line | last_line)* ~ WHITESPACE* ~ EOI }
+
+line = { WHITESPACE* ~ (label_only | instruction_decl | directive)? ~ WHITESPACE* ~ COMMENT? ~ NEWLINE }
+last_line = { WHITESPACE* ~ (label_only | instruction_decl | directive) ~ WHITESPACE* ~ COMMENT? }
+
+label_only = { ident ~ ":" ~ !opcode }
+instruction_decl = { label_prefix? ~ opcode ~ arg_list? }
+
+
+directive        = { "." ~ ident ~ WHITESPACE* ~ directive_args? }
+directive_args   = @{ (!NEWLINE ~ ANY)+ }
+
+label_prefix = { ident ~ ":" }
+opcode = _{
+      "ADD" | "SUB" | "MUL" | "DIV"
+    | "AND" | "OR" | "XOR" | "NOT"
+    | "JMP" | "JZ" | "JNZ"
+    | "MOV" | "LOAD" | "STORE"
+    | "CALL" | "RET"
+    | "PUSH" | "POP"
+    | "HALT" | "BREAK"
+    | "SYSCALL" | "NOP"
+}
+arg_list = { WHITESPACE* ~ arg ~ (WHITESPACE* ~ "," ~ WHITESPACE* ~ arg )* }
+arg = _{ num | register | ident }
+register = @{ "r" ~ ASCII_DIGIT }
+num = @{ "-"? ~ ASCII_DIGIT+ }
+ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }

@@ -1,0 +1,9 @@
+.section .data
+a: .word 5
+b: .word 7
+
+.section .text
+    LOAD r1, a       ; load value at address 'a' into r1
+    LOAD r2, b       ; load value at address 'b' into r2
+    ADD r3, r1, r2   ; r3 = r1 + r2
+    HALT
