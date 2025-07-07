@@ -1,5 +1,6 @@
 use crate::ast::{Instruction, Arg, OpCode, Line};
 use std::collections::HashMap;
+use crc32fast::Hasher;
 use log::debug;
 use crate::parser::parse_program;
 
@@ -211,7 +212,7 @@ impl Assembler {
 impl BytecodeProgram {
   pub fn with_header(code: Vec<u8>, data: Vec<u8>, rodata: Vec<u8>) -> Vec<u8> {
     // Header layout constants
-    const HEADER_SIZE: usize = 32;
+    const HEADER_SIZE: usize = 36; // 32 bytes for header fields + 4 for checksum
     let mut output = Vec::with_capacity(
       HEADER_SIZE + code.len() + data.len() + rodata.len()
     );
@@ -223,6 +224,8 @@ impl BytecodeProgram {
     output.extend_from_slice(&1u16.to_le_bytes());
     // Reserved/padding
     output.extend_from_slice(&0u16.to_le_bytes());
+    // Checksum placeholder
+    output.extend_from_slice(&0u32.to_le_bytes());
 
     // Calculate section offsets (from start of file)
     let text_offset = HEADER_SIZE as u32;
@@ -244,6 +247,14 @@ impl BytecodeProgram {
     output.extend_from_slice(&data);
     output.extend_from_slice(&rodata);
 
+    let checsum = {
+      let mut hasher = Hasher::new();
+      hasher.update(&output);
+      hasher.finalize()
+    };
+
+    output[8..12].copy_from_slice(&checsum.to_le_bytes());
+
     output
   }
 }
@@ -261,22 +272,33 @@ mod tests {
 
   fn parse_header(bytes: &[u8]) -> (u32, u32, u32, u32, u32, u32) {
     assert_eq!(&bytes[0..4], b"LAF\0");
-    let text_offset = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]);
-    let text_size   = u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
-    let data_offset = u32::from_le_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
-    let data_size   = u32::from_le_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]);
-    let rodata_offset = u32::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27]]);
-    let rodata_size   = u32::from_le_bytes([bytes[28], bytes[29], bytes[30], bytes[31]]);
+    let text_offset = u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
+    let text_size   = u32::from_le_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
+    let data_offset = u32::from_le_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]);
+    let data_size   = u32::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27]]);
+    let rodata_offset = u32::from_le_bytes([bytes[28], bytes[29], bytes[30], bytes[31]]);
+    let rodata_size   = u32::from_le_bytes([bytes[32], bytes[33], bytes[34], bytes[35]]);
     (text_offset, text_size, data_offset, data_size, rodata_offset, rodata_size)
+  }
+
+  fn validate_checksum(bytes: &[u8]) {
+    let mut test = bytes.to_vec();
+    test[8..12].copy_from_slice(&[0;4]);
+    let mut hasher = crc32fast::Hasher::new();
+    hasher.update(&test);
+    let computed = hasher.finalize();
+    let stored = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
+    assert_eq!(computed, stored, "Checksum mismatch!");
   }
 
   #[test]
   fn test_assemble_simple_instruction() {
     let source = "ADD r1, r2, r3";
     let bytecode = assemble_with_header(source).unwrap();
+    validate_checksum(&bytecode);
 
     assert_eq!(bytecode, vec![
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 13, 0, 0, 0, 45, 0, 0, 0, 0, 0, 0, 0, 45, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0
+      76, 65, 70, 0, 1, 0, 0, 0, 91, 130, 53, 59, 36, 0, 0, 0, 13, 0, 0, 0, 49, 0, 0, 0, 0, 0, 0, 0, 49, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0
     ]);
   }
 
@@ -284,9 +306,10 @@ mod tests {
   fn test_assemble_with_immediate() {
     let source = "MOV r1, 42";
     let bytecode = assemble_with_header(source).unwrap();
+    validate_checksum(&bytecode);
 
     assert_eq!(bytecode, vec![
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 9, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 0, 12, 1, 0, 0, 0, 42, 0, 0, 0
+      76, 65, 70, 0, 1, 0, 0, 0, 140, 209, 6, 127, 36, 0, 0, 0, 9, 0, 0, 0, 45, 0, 0, 0, 0, 0, 0, 0, 45, 0, 0, 0, 0, 0, 0, 0, 12, 1, 0, 0, 0, 42, 0, 0, 0
     ]);
   }
 
@@ -298,9 +321,10 @@ mod tests {
       JMP start
     ";
     let bytecode = assemble_with_header(source).unwrap();
+    validate_checksum(&bytecode);
 
     assert_eq!(bytecode, vec![
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 6, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0
+      76, 65, 70, 0, 1, 0, 0, 0, 99, 221, 63, 143, 36, 0, 0, 0, 6, 0, 0, 0, 42, 0, 0, 0, 0, 0, 0, 0, 42, 0, 0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0
     ]);
   }
 
@@ -314,9 +338,10 @@ mod tests {
     ";
 
     let bytecode = assemble_with_header(source).unwrap();
+    validate_checksum(&bytecode);
 
     assert_eq!(bytecode, vec![
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 28, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 12, 1, 0, 0, 0, 10, 0, 0, 0, 2, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 11, 9, 0, 0, 0, 19
+      76, 65, 70, 0, 1, 0, 0, 0, 60, 35, 142, 29, 36, 0, 0, 0, 28, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 12, 1, 0, 0, 0, 10, 0, 0, 0, 2, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 11, 9, 0, 0, 0, 19
     ]);
   }
 
@@ -324,9 +349,10 @@ mod tests {
   fn test_invalid_register_defaults_to_ff() {
     let source = "ADD r9, r1, r2";
     let bytecode = assemble_with_header(source).unwrap();
+    validate_checksum(&bytecode);
 
     assert_eq!(bytecode, vec![
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 13, 0, 0, 0, 45, 0, 0, 0, 0, 0, 0, 0, 45, 0, 0, 0, 0, 0, 0, 0, 1, 255, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0
+      76, 65, 70, 0, 1, 0, 0, 0, 215, 223, 186, 160, 36, 0, 0, 0, 13, 0, 0, 0, 49, 0, 0, 0, 0, 0, 0, 0, 49, 0, 0, 0, 0, 0, 0, 0, 1, 255, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0
     ]);
   }
 
@@ -334,7 +360,7 @@ mod tests {
   fn test_label_only_line() {
     let source = "start:";
     let assembler = assemble_with_header(source).unwrap();
-    assert_eq!(assembler.len(), 32); // Header size only
+    assert_eq!(assembler.len(), 32 + 4); // Header size + checksum only
   }
 
   #[test]
@@ -345,9 +371,10 @@ mod tests {
       HALT
     ";
     let bytecode = assemble_with_header(source).unwrap();
+    validate_checksum(&bytecode);
 
     assert_eq!(bytecode, vec![
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 11, 0, 0, 0, 43, 0, 0, 0, 0, 0, 0, 0, 43, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 0, 0, 21, 19
+      76, 65, 70, 0, 1, 0, 0, 0, 44, 128, 250, 162, 36, 0, 0, 0, 11, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 1, 0, 0, 0, 21, 19
     ]);
   }
 
@@ -355,9 +382,9 @@ mod tests {
   fn test_assemble_data_word() {
     let source = ".word 42 100 -1";
     let bytecode = assemble_with_header(source).unwrap();
-    // TODO: Check this as I think it might be incorrect.
+    validate_checksum(&bytecode);
     assert_eq!(bytecode, [
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0
+      76, 65, 70, 0, 1, 0, 0, 0, 218, 96, 74, 175, 36, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0
     ]);
   }
 
@@ -365,8 +392,9 @@ mod tests {
   fn test_assemble_data_word_with_newline() {
     let source = ".word 42 100 -1\n";
     let bytecode = assemble_with_header(source).unwrap();
+    validate_checksum(&bytecode);
     assert_eq!(bytecode, [
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0
+      76, 65, 70, 0, 1, 0, 0, 0, 218, 96, 74, 175, 36, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0
     ]);
   }
 
@@ -374,8 +402,9 @@ mod tests {
   fn test_assemble_ascii() {
     let source = ".ascii \"hello!\"";
     let bytecode = assemble_with_header(source).unwrap();
+    validate_checksum(&bytecode);
     assert_eq!(bytecode, vec![
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0
+      76, 65, 70, 0, 1, 0, 0, 0, 218, 96, 74, 175, 36, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0
     ]);
   }
 
@@ -383,8 +412,9 @@ mod tests {
   fn test_assemble_ascii_with_newline() {
     let source = ".ascii \"hello!\"\n";
     let bytecode = assemble_with_header(source).unwrap();
+    validate_checksum(&bytecode);
     assert_eq!(bytecode, vec![
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0
+      76, 65, 70, 0, 1, 0, 0, 0, 218, 96, 74, 175, 36, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0
     ]);
   }
 
@@ -392,8 +422,9 @@ mod tests {
   fn test_assemble_ascii_label_with_newline() {
     let source = "hello: .ascii \"hello!\"\n";
     let bytecode = assemble_with_header(source).unwrap();
+    validate_checksum(&bytecode);
     assert_eq!(bytecode, vec![
-      76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0
+      76, 65, 70, 0, 1, 0, 0, 0, 218, 96, 74, 175, 36, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 0
     ]);
   }
 
@@ -407,13 +438,12 @@ mod tests {
         HALT
     ";
     let prog = assemble_with_header(src).unwrap();
-    // code = [MOV ... HALT ...], data = [b'h', b'i']
-    // You can test that the bytecode layout is correct!
+    validate_checksum(&prog);
 
     assert_eq!(
       prog,
       vec![
-        76, 65, 70, 0, 1, 0, 0, 0, 32, 0, 0, 0, 10, 0, 0, 0, 42, 0, 0, 0, 2, 0, 0, 0, 44, 0, 0, 0, 0, 0, 0, 0, 12, 1, 0, 0, 0, 1, 0, 0, 0, 19, 104, 105
+        76, 65, 70, 0, 1, 0, 0, 0, 225, 76, 211, 104, 36, 0, 0, 0, 10, 0, 0, 0, 46, 0, 0, 0, 2, 0, 0, 0, 48, 0, 0, 0, 0, 0, 0, 0, 12, 1, 0, 0, 0, 1, 0, 0, 0, 19, 104, 105
       ]
     )
   }
@@ -424,8 +454,9 @@ mod tests {
     let bytes = assemble_with_header(src).unwrap();
     let (text_off, text_sz, data_off, data_sz, rodata_off, rodata_sz) = parse_header(&bytes);
 
+    validate_checksum(&bytes);
     // Code is right after header
-    assert_eq!(text_off, 32);
+    assert_eq!(text_off, 36);
     assert_eq!(text_sz, 10);
     assert_eq!(data_sz, 0);
     assert_eq!(rodata_sz, 0);
@@ -446,7 +477,7 @@ mod tests {
     let (_text_off, _text_sz, data_off, data_sz, _rodata_off, _rodata_sz) = parse_header(&bytes);
 
     // Data section is after header, length matches contents
-    assert_eq!(data_off, 32);
+    assert_eq!(data_off, 36);
     assert_eq!(data_sz, 8 + 2); // 2 words + 2 ascii bytes
 
     // Data: 123, 456, 'h', 'i'
@@ -457,6 +488,7 @@ mod tests {
       v.extend_from_slice(b"hi");
       v
     };
+    validate_checksum(&bytes);
     assert_eq!(&bytes[data_off as usize..(data_off+data_sz) as usize], &expected_data[..]);
   }
 
@@ -469,6 +501,7 @@ mod tests {
     let bytes = assemble_with_header(src).unwrap();
     let (_text_off, _text_sz, _data_off, _data_sz, rodata_off, rodata_sz) = parse_header(&bytes);
 
+    validate_checksum(&bytes);
     assert_eq!(rodata_sz, 2);
     assert_eq!(&bytes[rodata_off as usize..(rodata_off+rodata_sz) as usize], b"RO");
   }
@@ -485,6 +518,7 @@ mod tests {
     ";
     let bytes = assemble_with_header(src).unwrap();
     let (text_off, text_sz, data_off, data_sz, rodata_off, rodata_sz) = parse_header(&bytes);
+    validate_checksum(&bytes);
 
     // Check code
     assert_eq!(&bytes[text_off as usize..(text_off+text_sz) as usize],

@@ -132,6 +132,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc32fast"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a97769d94ddab943e4510d138150169a2758b5ef3eb191a9ee688de3e23ef7b3"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "crypto-common"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -222,9 +231,10 @@ dependencies = [
 
 [[package]]
 name = "leaf-asm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
+ "crc32fast",
  "env_logger",
  "log",
  "pest",
