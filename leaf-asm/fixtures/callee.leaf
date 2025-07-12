@@ -1,0 +1,4 @@
+.text
+ext_func:
+  NOP
+  RET

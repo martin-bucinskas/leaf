@@ -167,6 +167,17 @@ fn parse_arg(pair: Pair<Rule>) -> Arg {
     }
     Rule::register => Arg::Register(pair.as_str().to_string()),
     Rule::ident => Arg::Label(pair.as_str().to_string()),
+    Rule::mem => {
+      let inner = pair.into_inner().next().unwrap();
+      match inner.as_rule() {
+        Rule::register => Arg::Mem(Box::new(Arg::Register(inner.as_str().to_string()))),
+        Rule::num => {
+          let n: i32 = inner.as_str().parse().unwrap();
+          Arg::Mem(Box::new(Arg::Immediate(n)))
+        }
+        _ => panic!("Unexpected memory argument: {:?}", inner.as_rule()),
+      }
+    }
     _ => panic!("Unexpected rule in argument: {:?}", pair.as_rule()),
   }
 }

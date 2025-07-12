@@ -1,0 +1,4 @@
+.text
+main:
+  NOP
+  HALT

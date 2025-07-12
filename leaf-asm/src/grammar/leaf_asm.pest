@@ -26,7 +26,8 @@ opcode = _{
     | "SYSCALL" | "NOP"
 }
 arg_list = { WHITESPACE* ~ arg ~ (WHITESPACE* ~ "," ~ WHITESPACE* ~ arg )* }
-arg = _{ num | register | ident }
+arg = _{ mem | num | register | ident }
+mem = { "[" ~ (register | ident) ~ "]" }
 register = @{ "r" ~ ASCII_DIGIT }
 num = @{ "-"? ~ ASCII_DIGIT+ }
-ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+ident = @{ ("." | ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | ".")* }

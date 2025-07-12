@@ -1,0 +1,6 @@
+.text
+main:
+  CALL ext_func
+  HALT
+
+.extern ext_func

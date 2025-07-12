@@ -15,6 +15,7 @@ pub enum Arg {
   Immediate(i32),
   Register(String),
   Label(String),
+  Mem(Box<Arg>),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -37,4 +38,5 @@ pub enum Line {
   Directive(Directive),
   Section(String),
   Global(String),
+  Extern(String),
 }

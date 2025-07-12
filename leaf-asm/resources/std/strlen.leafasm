@@ -1,0 +1,13 @@
+.text
+strlen:
+  ; input: r1 = pointer to string
+  ; output: r2 = length of string
+  MOV r2, 0
+.loop:
+  LOAD r3, [r1]
+  JZ r3, .done
+  ADD r2, r2, 1
+  ADD r1, r1, 1
+  JMP .loop
+.done:
+  RET

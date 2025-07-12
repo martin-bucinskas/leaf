@@ -1,0 +1,6 @@
+.text
+start:
+  JMP somewhere
+  NOP
+somewhere:
+  HALT

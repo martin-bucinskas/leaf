@@ -1,0 +1,9 @@
+.data
+  .word 123 456
+  .ascii "hi"
+.rodata
+  .word 789
+  .ascii "constant"
+.text
+main:
+  NOP
