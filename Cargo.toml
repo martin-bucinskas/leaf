@@ -1,5 +1,7 @@
 [workspace]
 members = [
-    "leaf-asm"
+    "leaf_asm",
+    "leaf_vm",
+    "leaf_common",
 ]
 resolver = "3"

@@ -1,13 +1,15 @@
+use log::{debug, info};
 use pest::Parser;
 use pest::iterators::{Pair, Pairs};
 use pest_derive::Parser;
-use crate::ast::{Line, Instruction, OpCode, Arg, Directive};
+use leaf_common::leaf_ast::{Arg, Directive, Instruction, Line, OpCode};
 
 #[derive(Parser)]
 #[grammar = "grammar/leaf_asm.pest"]
 pub struct LeafAsmParser;
 
 pub fn parse_program(source: &str) -> Result<Vec<Line>, String> {
+  info!("Parsing program:\n{}", source);
   let pairs = LeafAsmParser::parse(Rule::program, source)
     .map_err(|e| format!("Parse error: {}", e))?;
   let mut lines = Vec::new();
@@ -19,6 +21,7 @@ pub fn parse_program(source: &str) -> Result<Vec<Line>, String> {
           match item.as_rule() {
             Rule::line | Rule::last_line => {
               if let Some(line) = parse_line(item) {
+                info!("Parsed line: {:?}", line);
                 lines.push(line);
               }
             }
@@ -41,6 +44,7 @@ fn parse_line(pair: Pair<Rule>) -> Option<Line> {
         Some(l) => match l.as_rule() {
           Rule::label_only => {
             let ident = l.into_inner().next().unwrap().as_str();
+            info!("Parsed label only: {}", ident);
             Some(Line::LabelOnly(ident.to_string()))
           }
           Rule::instruction_decl => Some(parse_instruction_decl(l)),
@@ -59,7 +63,11 @@ fn parse_directive(pair: Pair<Rule>) -> Line {
   let name = inner.next().unwrap().as_str().to_string();
   let args = inner.next().map(|p| p.as_str().trim().to_string());
 
+  info!("Parsed directive: {} with args: {:?}", name, args);
   match name.as_str() {
+    "text" => Line::Section(".text".to_string()),
+    "data" => Line::Section(".data".to_string()),
+    "rodata" => Line::Section(".roddata".to_string()),
     "section" => Line::Section(args.unwrap_or_default()),
     "global"  => Line::Global(args.unwrap_or_default()),
     _         => Line::Directive(Directive { name, args }),
@@ -71,6 +79,8 @@ fn parse_instruction_decl(pair: Pair<Rule>) -> Line {
   let mut label = None;
   let mut opcode_str = None;
   let mut args = Vec::new();
+
+  info!("Parsing instruction declaration: {}", pair.as_str());
 
   // If label_prefix exists, it's first
   if let Some(peek) = inner.peek() {
@@ -147,6 +157,9 @@ fn parse_opcode(s: &str) -> OpCode {
     "MOV" => OpCode::Mov,
     "LOAD" => OpCode::Load,
     "STORE" => OpCode::Store,
+    "MOVI" => OpCode::Movi,
+    "LOADI" => OpCode::Loadi,
+    "STOREI" => OpCode::Storei,
     "CALL" => OpCode::Call,
     "RET" => OpCode::Ret,
     "PUSH" => OpCode::Push,
@@ -175,6 +188,7 @@ fn parse_arg(pair: Pair<Rule>) -> Arg {
           let n: i32 = inner.as_str().parse().unwrap();
           Arg::Mem(Box::new(Arg::Immediate(n)))
         }
+        Rule::ident => Arg::Mem(Box::new(Arg::Label(inner.as_str().to_string()))),
         _ => panic!("Unexpected memory argument: {:?}", inner.as_rule()),
       }
     }
@@ -185,7 +199,6 @@ fn parse_arg(pair: Pair<Rule>) -> Arg {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::ast::{Line, Instruction, OpCode, Arg};
 
   #[test]
   fn parse_simple_add() {

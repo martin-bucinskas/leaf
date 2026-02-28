@@ -1,5 +1,5 @@
 use log::{debug, info};
-use crate::assembler::{LeafAsmObject, RelocationType, SymbolEntry};
+use leaf_common::leaf_file::{LeafAsmObject, RelocationType, SymbolEntry};
 
 pub fn link(objects: &[LeafAsmObject], entry_point: &str) -> Result<LeafAsmObject, String> {
   let mut final_bytecode = vec![];
@@ -31,6 +31,9 @@ pub fn link(objects: &[LeafAsmObject], entry_point: &str) -> Result<LeafAsmObjec
     final_rodata.extend(&object.rodata);
   }
 
+  let total_code_size = final_bytecode.len() as u32;
+  let total_data_size = final_data.len() as u32;
+
   for (index, object) in objects.iter().enumerate() {
     let text_base = text_bases[index];
     let data_base = data_bases[index];
@@ -39,8 +42,8 @@ pub fn link(objects: &[LeafAsmObject], entry_point: &str) -> Result<LeafAsmObjec
     for symbol in &object.symbols {
       let adjusted_offset = match symbol.section {
         0 => symbol.offset + text_base,
-        1 => symbol.offset + data_base,
-        2 => symbol.offset + rodata_base,
+        1 => symbol.offset + data_base + total_code_size,
+        2 => symbol.offset + rodata_base + total_code_size + total_data_size,
         _ => symbol.offset,
       };
       symbol_table.push(SymbolEntry {
@@ -66,29 +69,38 @@ pub fn link(objects: &[LeafAsmObject], entry_point: &str) -> Result<LeafAsmObjec
         None => return Err(format!("Unresolved symbol: {}", symbol.name))
       };
 
-      let patch_offset = (text_base + reloc.offset) as usize;
+      // Compute base offset for the section being patched
+      let (base, slice, slice_name) = match reloc.target_section {
+        0 => (text_bases[index], &mut final_bytecode, "bytecode"),
+        1 => (data_bases[index], &mut final_data, "data"),
+        2 => (rodata_bases[index], &mut final_rodata, "rodata"),
+        _ => return Err(format!("Invalid target_section in relocation: {}", reloc.target_section)),
+      };
 
-      if patch_offset + 4 > final_bytecode.len() {
+      let patch_offset = (base + reloc.offset) as usize;
+      if patch_offset + 4 > slice.len() {
         return Err(format!(
-          "Relocation offset {} out of bounds (bytecode size: {})",
-          patch_offset,
-          final_bytecode.len()
+          "Relocation offset {} out of bounds ({} size: {})",
+          patch_offset, slice_name, slice.len()
         ));
       }
 
+      // Now patch in the correct section
       match reloc.reloc_type {
         RelocationType::Absolute => {
-          info!("Patching absolute relocation at offset {} for symbol {} with resolved offset {}",
-                patch_offset, symbol.name, resolved_offset);
-          final_bytecode[patch_offset..patch_offset + 4]
-            .copy_from_slice(&resolved_offset.to_le_bytes());
+          info!(
+            "Patching absolute relocation in {} at offset {} for symbol {} with resolved offset {}",
+            slice_name, patch_offset, symbol.name, resolved_offset
+        );
+          slice[patch_offset..patch_offset + 4].copy_from_slice(&resolved_offset.to_le_bytes());
         }
         RelocationType::Relative => {
           let rel = (resolved_offset as i32) - (patch_offset as i32 + 4);
-          info!("Patching relative relocation at offset {} for symbol {} with relative value {}",
-                patch_offset, symbol.name, rel);
-          final_bytecode[patch_offset..patch_offset + 4]
-            .copy_from_slice(&(rel as u32).to_le_bytes());
+          info!(
+            "Patching relative relocation in {} at offset {} for symbol {} with relative value {}",
+            slice_name, patch_offset, symbol.name, rel
+        );
+          slice[patch_offset..patch_offset + 4].copy_from_slice(&(rel as u32).to_le_bytes());
         }
       }
     }
@@ -113,8 +125,8 @@ pub fn link(objects: &[LeafAsmObject], entry_point: &str) -> Result<LeafAsmObjec
 
 #[cfg(test)]
 mod tests {
+  use leaf_common::leaf_file::RelocationEntry;
   use super::*;
-  use crate::assembler::{RelocationType, RelocationEntry, SymbolEntry, LeafAsmObject};
 
   fn mock_obj(
     bytecode: Vec<u8>,
@@ -189,7 +201,7 @@ mod tests {
       SymbolEntry { name: "func".to_string(), offset: 0, section: 0, kind: 0, external: true }
     ];
     let mut reloc1 = vec![
-      RelocationEntry { offset: 1, symbol_index: 1, reloc_type: RelocationType::Absolute }
+      RelocationEntry { offset: 1, symbol_index: 1, reloc_type: RelocationType::Absolute, target_section: 0 }
     ];
     // .text = [CALL, 0, 0, 0, 0] (CALL opcode, then placeholder for address)
     let obj1 = mock_obj(vec![0x01, 0x00, 0x00, 0x00, 0x00], vec![], vec![], symbols1, reloc1);
@@ -215,7 +227,7 @@ mod tests {
       SymbolEntry { name: "func".to_string(), offset: 0, section: 0, kind: 0, external: true }
     ];
     let mut reloc1 = vec![
-      RelocationEntry { offset: 1, symbol_index: 1, reloc_type: RelocationType::Relative }
+      RelocationEntry { offset: 1, symbol_index: 1, reloc_type: RelocationType::Relative, target_section: 0 }
     ];
     // .text = [JMP, 0, 0, 0, 0] (JMP opcode, then placeholder for relative addr)
     let obj1 = mock_obj(vec![0x02, 0x00, 0x00, 0x00, 0x00], vec![], vec![], symbols1, reloc1);
@@ -246,7 +258,7 @@ mod tests {
       SymbolEntry { name: "missing".to_string(), offset: 0, section: 0, kind: 0, external: true }
     ];
     let reloc = vec![
-      RelocationEntry { offset: 1, symbol_index: 1, reloc_type: RelocationType::Absolute }
+      RelocationEntry { offset: 1, symbol_index: 1, reloc_type: RelocationType::Absolute, target_section: 0 }
     ];
     let obj = mock_obj(vec![0xDE, 0, 0, 0, 0], vec![], vec![], symbols, reloc);
 

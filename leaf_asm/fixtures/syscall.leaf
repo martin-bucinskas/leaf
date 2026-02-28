@@ -1,0 +1,11 @@
+.text
+main:
+  ; Print a string
+  MOVI r1, message
+  MOVI r0, 1
+  SYSCALL
+  HALT
+
+.data
+message: .ascii "Hello, World!\0"
+not_message: .ascii "This should not be printed!\0"

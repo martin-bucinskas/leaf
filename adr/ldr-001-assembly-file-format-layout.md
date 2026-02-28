@@ -77,6 +77,6 @@ A file might look like this in binary (hex representation):
 ## 5. References
 - [ELF File Format](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format) (for conceptual inspiration)
 - [CRC32](https://en.wikipedia.org/wiki/Cyclic_redundancy_check) checksum algorithm
-- [assembler.rs](../leaf-asm/src/assembler.rs) (Leaf assembler source code)
+- [assembler.rs](../leaf_asm/src/assembler.rs) (Leaf assembler source code)
 
 ---

@@ -1,10 +1,7 @@
 use std::io::{Read, Write};
 use bincode::{Decode, Encode};
 use log::info;
-use crate::common::{ReadableResource, WriteableResource};
-
-pub mod asm;
-pub mod assemble;
+use crate::{ReadableResource, WriteableResource};
 
 #[derive(Debug, Eq, PartialEq, Clone, Encode, Decode)]
 pub struct SymbolEntry {
@@ -31,6 +28,7 @@ pub struct RelocationEntry {
   pub offset: u32,
   pub symbol_index: u32,
   pub reloc_type: RelocationType,
+  pub target_section: u8, // 0=text, 1=data, 2=rodata
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Encode, Decode)]
@@ -116,6 +114,7 @@ mod tests {
       offset: 0x1004,
       symbol_index: 0,
       reloc_type: RelocationType::Absolute,
+      target_section: 0,
     };
 
     let object = LeafAsmObject {

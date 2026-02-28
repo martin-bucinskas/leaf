@@ -10,7 +10,6 @@ last_line = { WHITESPACE* ~ (label_only | instruction_decl | directive) ~ WHITES
 label_only = { ident ~ ":" ~ !opcode }
 instruction_decl = { label_prefix? ~ opcode ~ arg_list? }
 
-
 directive        = { "." ~ ident ~ WHITESPACE* ~ directive_args? }
 directive_args   = @{ (!NEWLINE ~ ANY)+ }
 
@@ -19,6 +18,7 @@ opcode = _{
       "ADD" | "SUB" | "MUL" | "DIV"
     | "AND" | "OR" | "XOR" | "NOT"
     | "JMP" | "JZ" | "JNZ"
+    | "MOVI" | "LOADI" | "STOREI"
     | "MOV" | "LOAD" | "STORE"
     | "CALL" | "RET"
     | "PUSH" | "POP"
@@ -28,6 +28,6 @@ opcode = _{
 arg_list = { WHITESPACE* ~ arg ~ (WHITESPACE* ~ "," ~ WHITESPACE* ~ arg )* }
 arg = _{ mem | num | register | ident }
 mem = { "[" ~ (register | ident) ~ "]" }
-register = @{ "r" ~ ASCII_DIGIT }
+register = @{ "r" ~ ASCII_DIGIT+ }
 num = @{ "-"? ~ ASCII_DIGIT+ }
 ident = @{ ("." | ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | ".")* }

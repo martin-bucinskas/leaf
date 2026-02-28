@@ -1,16 +1,15 @@
 use std::{fs::File, io::{BufReader, BufWriter, Read, Write}, path::Path};
 use clap::{Parser as ClapParser, Subcommand};
 use log::{info, error};
+use leaf_common::leaf_file::{LeafAsmFile, LeafAsmObjectHeader};
+use leaf_common::{ReadableResource, WriteableResource};
+use leaf_common::leaf_ast::Line;
 use crate::assembler::assemble::Assembler;
-use crate::assembler::{LeafAsmFile, LeafAsmObjectHeader};
-use crate::common::{ReadableResource, WriteableResource};
 use crate::linker::linker::link;
 
-mod ast;
 mod parser;
-mod linker;
-mod assembler;
-mod common;
+pub mod linker;
+pub mod assembler;
 
 
 /// Generate a header for a new object file
@@ -118,7 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         // Entry point: pick "main" if it exists, else None
         let entry_point = program.iter().filter_map(|l| match l {
-          ast::Line::LabelOnly(l) => Some(l),
+          Line::LabelOnly(l) => Some(l),
           _ => None,
         }).find(|l| l.as_str() == "main").map(|_| "main".to_string());
         let object = Assembler::assemble(&program, entry_point);

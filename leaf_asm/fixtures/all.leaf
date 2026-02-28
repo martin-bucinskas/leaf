@@ -1,0 +1,45 @@
+.text
+main:
+  ; Arithmetic
+  MOVI r0, 123
+  MOVI r1, 456
+  ADD r2, r0, r1
+  SUB r3, r2, r1
+  MUL r4, r3, r1
+  DIV r5, r4, r1
+  AND r6, r4, r1
+  OR  r7, r4, r1
+  XOR r8, r4, r1
+  NOT r9, r1
+
+  ; Jumps
+  JMP somewhere
+  JZ r0, somewhere
+  JNZ r0, somewhere
+
+  ; Memory
+  LOAD r0, [r1]
+  LOAD r2, [data_label]
+  LOADI r3, data_label
+  STORE r4, [r5]
+  STOREI r6, data_label
+
+  ; Stack
+  PUSH r7
+  POP r8
+
+  ; Calls and sys
+  CALL somewhere
+  RET
+  BREAK
+  SYSCALL
+
+  ; NOP/HALT
+  NOP
+  HALT
+
+somewhere:
+  NOP
+
+.data
+data_label: .word 0
