@@ -1,0 +1,26 @@
+.text
+main:
+    ; Set up stack pointer (done by VM, but let's be sure)
+    ; Stack usually grows down from the end of memory
+    
+    MOVI r1, 123
+    MOVI r2, 456
+    
+    PUSH r1
+    PUSH r2
+    
+    MOVI r1, 0
+    MOVI r2, 0
+    
+    POP r2 ; Should be 456
+    POP r1 ; Should be 123
+    
+    MOV r1, r1
+    MOVI r0, 2
+    SYSCALL ; Print 123
+    
+    MOV r1, r2
+    MOVI r0, 2
+    SYSCALL ; Print 456
+    
+    HALT

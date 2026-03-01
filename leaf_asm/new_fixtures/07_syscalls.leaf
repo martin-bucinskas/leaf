@@ -1,0 +1,22 @@
+.rodata
+msg: .ascii "Hello, Leaf VM!\n\0"
+
+.text
+main:
+    ; SYSCALL 1: Print string
+    MOVI r0, 1
+    MOVI r1, msg
+    SYSCALL
+    
+    ; SYSCALL 2: Print integer (already tested, but good for sequence)
+    MOVI r0, 2
+    MOVI r1, 42
+    SYSCALL
+    
+    ; SYSCALL 3: Exit with code
+    MOVI r0, 3
+    MOVI r1, 0
+    SYSCALL
+    
+    ; Should not reach here
+    HALT

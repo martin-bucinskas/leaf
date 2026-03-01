@@ -12,10 +12,16 @@ fn main() {
   }
   env_logger::init();
 
-  // let mut vm = VM::new(0x10000);
-  let mut vm = VM::new(0x100);
-  // let x = LeafAsmFile::read_from_path("C:\\Users\\bucin\\RustroverProjects\\leaf\\leaf_asm\\fixtures\\out\\exe\\fibonacci.leafexe")
-  let x = LeafAsmFile::read_from_path("C:\\Users\\bucin\\RustroverProjects\\leaf\\leaf_asm\\fixtures\\out\\exe\\all.leafexe")
+  let args: Vec<String> = std::env::args().collect();
+  let exe_path = if args.len() > 1 {
+    &args[1]
+  } else {
+    // "C:\\Users\\bucin\\RustroverProjects\\leaf\\leaf_asm\\fixtures\\out\\exe\\fibonacci.leafexe"
+    "C:\\Users\\bucin\\RustroverProjects\\leaf\\leaf_asm\\new_fixtures\\09_complex_syscalls.leafexe"
+  };
+
+  let mut vm = VM::new(0x10000);
+  let x = LeafAsmFile::read_from_path(exe_path)
     .expect("Failed to read ELF file");
   vm.load_program(&x);
   vm.run();

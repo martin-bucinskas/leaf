@@ -46,6 +46,8 @@ pub fn link(objects: &[LeafAsmObject], entry_point: &str) -> Result<LeafAsmObjec
         2 => symbol.offset + rodata_base + total_code_size + total_data_size,
         _ => symbol.offset,
       };
+      info!("Linking symbol '{}' (section {}) from object {}: original offset {}, adjusted offset {}", 
+            symbol.name, symbol.section, index, symbol.offset, adjusted_offset);
       symbol_table.push(SymbolEntry {
         name: symbol.name.clone(),
         offset: adjusted_offset,
@@ -69,6 +71,8 @@ pub fn link(objects: &[LeafAsmObject], entry_point: &str) -> Result<LeafAsmObjec
         None => return Err(format!("Unresolved symbol: {}", symbol.name))
       };
 
+      info!("Resolved symbol '{}' to offset {}", symbol.name, resolved_offset);
+
       // Compute base offset for the section being patched
       let (base, slice, slice_name) = match reloc.target_section {
         0 => (text_bases[index], &mut final_bytecode, "bytecode"),
@@ -78,6 +82,7 @@ pub fn link(objects: &[LeafAsmObject], entry_point: &str) -> Result<LeafAsmObjec
       };
 
       let patch_offset = (base + reloc.offset) as usize;
+      info!("Patching at patch_offset={} (base={}, reloc.offset={})", patch_offset, base, reloc.offset);
       if patch_offset + 4 > slice.len() {
         return Err(format!(
           "Relocation offset {} out of bounds ({} size: {})",

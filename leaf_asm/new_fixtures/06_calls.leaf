@@ -1,0 +1,18 @@
+.text
+main:
+    MOVI r1, 10
+    CALL subfunc
+    
+    ; Should return here
+    MOVI r1, 20
+    MOV r1, r1
+    MOVI r0, 2
+    SYSCALL ; Print 20
+    
+    HALT
+
+subfunc:
+    MOV r1, r1
+    MOVI r0, 2
+    SYSCALL ; Print 10
+    RET

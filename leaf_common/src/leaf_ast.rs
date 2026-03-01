@@ -1,4 +1,4 @@
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum OpCode {
   Add, Mul, Sub, Div,
   And, Or, Xor, Not,
@@ -72,7 +72,6 @@ impl OpCode {
       OpCode::Loadi => 0x17,
       OpCode::Storei => 0x18,
       OpCode::Invalid => 0xFF,
-      _ => 0xFF,
     }
   }
 

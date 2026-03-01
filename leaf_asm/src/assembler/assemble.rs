@@ -99,7 +99,14 @@ impl Assembler {
               if let Some(args) = &d.args {
                 let before_comment = args.split(';').next().unwrap_or("").trim();
                 let word_count = before_comment.split_whitespace().count();
-                pos[section as usize] += (word_count as u32) * 4;
+                pos[section as usize] += (word_count as u32) * 8;
+              }
+            }
+            "string" => {
+              if let Some(args) = &d.args {
+                let s = args.split(';').next().unwrap_or("").trim().trim_matches('"');
+                let parsed_bytes = parse_escaped_string(s);
+                pos[section as usize] += (parsed_bytes.len() as u32) + 1;
               }
             }
             "ascii" => {
@@ -135,8 +142,8 @@ impl Assembler {
 
   /// Second pass: Emit bytes and generate relocations
   pub fn second_pass(&mut self, program: &[Line]) {
+    let mut section = 0u8; // 0=text, 1=data, 2=rodata
     let mut pos = [0u32; 3];
-    let mut section = 0u8;
 
     for line in program {
       match line {
@@ -155,27 +162,27 @@ impl Assembler {
               if let Some(args) = &d.args {
                 let before_comment = args.split(';').next().unwrap_or("").trim();
                 for num in before_comment.split_whitespace() {
-                  let val: i32 = num.parse().unwrap();
+                  let val: i64 = num.parse().unwrap();
                   let bytes = val.to_le_bytes();
-                  match section {
-                    1 => self.data.extend_from_slice(&bytes),
-                    2 => self.rodata.extend_from_slice(&bytes),
-                    _ => {},
-                  }
-                  pos[section as usize] += 4;
+                  self.append_to_section(section, &bytes);
+                  pos[section as usize] += 8;
                 }
+              }
+            }
+            "string" => {
+              if let Some(args) = &d.args {
+                let s = args.split(';').next().unwrap_or("").trim().trim_matches('"');
+                let mut parsed_bytes = parse_escaped_string(s);
+                parsed_bytes.push(0); // Null terminator
+                self.append_to_section(section, &parsed_bytes);
+                pos[section as usize] += parsed_bytes.len() as u32;
               }
             }
             "ascii" => {
               if let Some(args) = &d.args {
-                info!("ℹ️ Found ascii directive with args: {}", args);
                 let s = args.trim().trim_matches('"');
                 let parsed_bytes = parse_escaped_string(s);
-                match section {
-                  1 => self.data.extend_from_slice(&parsed_bytes),
-                  2 => self.rodata.extend_from_slice(&parsed_bytes),
-                  _ => {},
-                }
+                self.append_to_section(section, &parsed_bytes);
                 pos[section as usize] += parsed_bytes.len() as u32;
               }
             }
@@ -183,408 +190,92 @@ impl Assembler {
           }
         }
         Line::Instruction(instr) => {
-          let target = match section {
-            0 => &mut self.code,
-            1 => &mut self.data,
-            2 => &mut self.rodata,
-            _ => unreachable!(),
-          };
-          target.push(OpCode::opcode_to_byte(&instr.opcode));
-          pos[section as usize] += 1;
+          let mut instr_bytes = Vec::new();
+          let opcode = &instr.opcode;
+          let args = &instr.args;
 
-          for arg in &instr.args {
-            match (&instr.opcode, arg) {
-              (OpCode::Load, Arg::Register(reg1)) => {
-                let reg = Self::reg_number(reg1);
-                let mut bytes = [0u8; 4];
-                bytes[0] = reg;
-                target.extend_from_slice(&bytes);
-                pos[section as usize] += 4;
-              }
-              (OpCode::Load, Arg::Mem(inner)) => {
-                match &**inner {
-                  Arg::Register(reg2) => {
-                    // LOAD r1, [r2]
-                    let reg = Self::reg_number(reg2);
-                    let mut bytes = [0u8; 4];
-                    bytes[0] = reg;
-                    target.extend_from_slice(&bytes);
-                    pos[section as usize] += 4;
-                  }
-                  Arg::Immediate(val) => {
-                    // LOAD r1, [1234]
-                    let bytes = (*val as u32).to_le_bytes();
-                    target.extend_from_slice(&bytes);
-                    pos[section as usize] += 4;
-                  }
-                  Arg::Label(label) => {
-                    // LOAD r1, [label]
-                    // Need relocation if cross-section or external
-                    if let Some((lab_section, lab_offset)) = self.labels.get(label) {
-                      if *lab_section != section {
-                        let symbol_idx = self.symbol_table.iter()
-                          .position(|s| s.name == *label)
-                          .expect("Reloc symbol must be in symbol table");
-                        let patch_offset = pos[section as usize];
-                        self.relocations.push(RelocationEntry {
-                          offset: patch_offset,
-                          symbol_index: symbol_idx as u32,
-                          reloc_type: RelocationType::Absolute,
-                          target_section: section,
-                        });
-                        target.extend_from_slice(&0u32.to_le_bytes());
-                      } else {
-                        let val = *lab_offset;
-                        target.extend_from_slice(&val.to_le_bytes());
-                      }
-                      pos[section as usize] += 4;
-                    } else {
-                      // External/unresolved symbol
-                      let symbol_idx = self.symbol_table.iter()
-                        .position(|s| s.name == *label)
-                        .expect("Reloc symbol must be in symbol table");
-                      let patch_offset = pos[section as usize];
-                      self.relocations.push(RelocationEntry {
-                        offset: patch_offset,
-                        symbol_index: symbol_idx as u32,
-                        reloc_type: RelocationType::Absolute,
-                        target_section: section,
-                      });
-                      target.extend_from_slice(&0u32.to_le_bytes());
-                      pos[section as usize] += 4;
-                    }
-                  }
-                  _ => panic!("LOAD only supports [register], [immediate], or [label] addressing"),
-                }
-              }
-              // (OpCode::Load, Arg::Mem(inner)) => {
-              //   // For now only [register]
-              //   if let Arg::Register(reg2) = &**inner {
-              //     let reg = Self::reg_number(reg2);
-              //     let mut bytes = [0u8; 4];
-              //     bytes[0] = reg;
-              //     target.extend_from_slice(&bytes);
-              //     pos[section as usize] += 4;
-              //   } else {
-              //     panic!("LOAD only supports [register] addressing");
-              //   }
-              // }
-              // STORE rX, [rY]
-              (OpCode::Store, Arg::Register(reg1)) => {
-                let reg = Self::reg_number(reg1);
-                let mut bytes = [0u8; 4];
-                bytes[0] = reg;
-                target.extend_from_slice(&bytes);
-                pos[section as usize] += 4;
-              },
-              (OpCode::Store, Arg::Mem(inner)) => {
-                if let Arg::Register(reg2) = &**inner {
-                  let reg = Self::reg_number(reg2);
-                  let mut bytes = [0u8; 4];
-                  bytes[0] = reg;
-                  target.extend_from_slice(&bytes);
-                  pos[section as usize] += 4;
-                } else {
-                  panic!("STORE only supports [register] addressing");
-                }
-              },
-              // LOADI rX, IMM or LOADI rX, label
-              (OpCode::Loadi, Arg::Register(reg1)) => {
-                let reg = Self::reg_number(reg1);
-                let mut bytes = [0u8; 4];
-                bytes[0] = reg;
-                target.extend_from_slice(&bytes);
-                pos[section as usize] += 4;
-              },
-              (OpCode::Loadi, Arg::Immediate(val)) => {
-                let bytes = (*val as u32).to_le_bytes();
-                target.extend_from_slice(&bytes);
-                pos[section as usize] += 4;
-              },
-              (OpCode::Loadi, Arg::Label(label)) => {
-                if let Some((lab_section, lab_offset)) = self.labels.get(label) {
-                  // if *lab_section != section {
-                  //   let symbol_idx = self.symbol_table.iter()
-                  //     .position(|s| s.name == *label)
-                  //     .expect("Reloc symbol must be in symbol table");
-                  //   let patch_offset = pos[section as usize];
-                  //   self.relocations.push(RelocationEntry {
-                  //     offset: patch_offset,
-                  //     symbol_index: symbol_idx as u32,
-                  //     reloc_type: RelocationType::Absolute,
-                  //   });
-                  //   target.extend_from_slice(&0u32.to_le_bytes());
-                  // } else {
-                  //   let val = *lab_offset;
-                  //   target.extend_from_slice(&val.to_le_bytes());
-                  // }
-                  let symbol_idx = self.symbol_table.iter()
-                    .position(|s| s.name == *label)
-                    .expect("Reloc symbol must be in symbol table");
-                  let patch_offset = pos[section as usize];
-                  self.relocations.push(RelocationEntry {
-                    offset: patch_offset,
-                    symbol_index: symbol_idx as u32,
-                    reloc_type: RelocationType::Absolute,
-                    target_section: section,
-                  });
-                  target.extend_from_slice(&0u32.to_le_bytes());
-                  pos[section as usize] += 4;
-                } else {
-                  let symbol_idx = self.symbol_table.iter()
-                    .position(|s| s.name == *label)
-                    .expect("Reloc symbol must be in symbol table");
-                  let patch_offset = pos[section as usize];
-                  self.relocations.push(RelocationEntry {
-                    offset: patch_offset,
-                    symbol_index: symbol_idx as u32,
-                    reloc_type: RelocationType::Absolute,
-                    target_section: section,
-                  });
-                  target.extend_from_slice(&0u32.to_le_bytes());
-                  pos[section as usize] += 4;
-                }
-              },
-              // STOREI rX, IMM or STOREI rX, label
-              (OpCode::Storei, Arg::Register(reg1)) => {
-                let reg = Self::reg_number(reg1);
-                let mut bytes = [0u8; 4];
-                bytes[0] = reg;
-                target.extend_from_slice(&bytes);
-                pos[section as usize] += 4;
-              },
-              (OpCode::Storei, Arg::Immediate(val)) => {
-                let bytes = (*val as u32).to_le_bytes();
-                target.extend_from_slice(&bytes);
-                pos[section as usize] += 4;
-              },
-              (OpCode::Storei, Arg::Label(label)) => {
-                if let Some((lab_section, lab_offset)) = self.labels.get(label) {
-                  // if *lab_section != section {
-                  //   let symbol_idx = self.symbol_table.iter()
-                  //     .position(|s| s.name == *label)
-                  //     .expect("Reloc symbol must be in symbol table");
-                  //   let patch_offset = pos[section as usize];
-                  //   self.relocations.push(RelocationEntry {
-                  //     offset: patch_offset,
-                  //     symbol_index: symbol_idx as u32,
-                  //     reloc_type: RelocationType::Absolute,
-                  //   });
-                  //   target.extend_from_slice(&0u32.to_le_bytes());
-                  // } else {
-                  //   let val = *lab_offset;
-                  //   target.extend_from_slice(&val.to_le_bytes());
-                  // }
-                  // pos[section as usize] += 4;
-                  let symbol_idx = self.symbol_table.iter()
-                    .position(|s| s.name == *label)
-                    .expect("Reloc symbol must be in symbol table");
-                  let patch_offset = pos[section as usize];
-                  self.relocations.push(RelocationEntry {
-                    offset: patch_offset,
-                    symbol_index: symbol_idx as u32,
-                    reloc_type: RelocationType::Absolute,
-                    target_section: section,
-                  });
-                  target.extend_from_slice(&0u32.to_le_bytes());
-                  pos[section as usize] += 4;
-                } else {
-                  let symbol_idx = self.symbol_table.iter()
-                    .position(|s| s.name == *label)
-                    .expect("Reloc symbol must be in symbol table");
-                  let patch_offset = pos[section as usize];
-                  self.relocations.push(RelocationEntry {
-                    offset: patch_offset,
-                    symbol_index: symbol_idx as u32,
-                    reloc_type: RelocationType::Absolute,
-                    target_section: section,
-                  });
-                  target.extend_from_slice(&0u32.to_le_bytes());
-                  pos[section as usize] += 4;
-                }
-              },
-              (OpCode::Mov, Arg::Register(name)) => {
-                let reg = Self::reg_number(name);
-                let mut bytes = [0u8; 4];
-                bytes[0] = reg;
-                target.extend_from_slice(&bytes);
-                pos[section as usize] += 4;
-              }
-              (OpCode::Mov, Arg::Immediate(_)) | (OpCode::Mov, Arg::Label(_)) => {
-                panic!("MOV only supports register-to-register. Use MOVI for immediates or addresses.");
-              }
-              (OpCode::Movi, Arg::Register(name)) => {
-                let reg = Self::reg_number(name);
-                let mut bytes = [0u8; 4];
-                bytes[0] = reg;
-                target.extend_from_slice(&bytes);
-                pos[section as usize] += 4;
-              }
-              (OpCode::Movi, Arg::Immediate(val)) => {
-                let bytes = (*val as u32).to_le_bytes();
-                target.extend_from_slice(&bytes);
-                pos[section as usize] += 4;
-              }
-              (OpCode::Movi, Arg::Label(label)) => {
-                // If label defined locally, emit absolute offset, else create relocation
-                if let Some((lab_section, lab_offset)) = self.labels.get(label) {
-                  // if *lab_section != section {
-                  //   // Cross-section reference: emit relocation!
-                  //   let symbol_idx = self.symbol_table.iter()
-                  //     .position(|s| s.name == *label)
-                  //     .expect("Reloc symbol must be in symbol table");
-                  //   let patch_offset = pos[section as usize];
-                  //   self.relocations.push(RelocationEntry {
-                  //     offset: patch_offset,
-                  //     symbol_index: symbol_idx as u32,
-                  //     reloc_type: RelocationType::Absolute,
-                  //   });
-                  //   target.extend_from_slice(&0u32.to_le_bytes());
-                  // } else {
-                  //   // Same-section (e.g. code->code): can resolve directly
-                  //   let val = *lab_offset;
-                  //   target.extend_from_slice(&val.to_le_bytes());
-                  // }
-                  // pos[section as usize] += 4;
-                  let symbol_idx = self.symbol_table.iter()
-                    .position(|s| s.name == *label)
-                    .expect("Reloc symbol must be in symbol table");
-                  let patch_offset = pos[section as usize];
-                  self.relocations.push(RelocationEntry {
-                    offset: patch_offset,
-                    symbol_index: symbol_idx as u32,
-                    reloc_type: RelocationType::Absolute,
-                    target_section: section,
-                  });
-                  target.extend_from_slice(&0u32.to_le_bytes());
-                  pos[section as usize] += 4;
-                } else {
-                  let symbol_idx = self.symbol_table.iter()
-                    .position(|s| s.name == *label)
-                    .expect("Reloc symbol must be in symbol table");
-                  let patch_offset = pos[section as usize];
-                  self.relocations.push(RelocationEntry {
-                    offset: patch_offset,
-                    symbol_index: symbol_idx as u32,
-                    reloc_type: RelocationType::Absolute,
-                    target_section: section,
-                  });
-                  target.extend_from_slice(&0u32.to_le_bytes());
-                }
-                pos[section as usize] += 4;
-              }
-              _ => {
-                match arg {
-                  Arg::Register(name) => {
-                    let reg = Self::reg_number(name);
-                    let mut bytes = [0u8; 4];
-                    bytes[0] = reg;
-                    target.extend_from_slice(&bytes);
-                    pos[section as usize] += 4;
-                  }
-                  Arg::Immediate(val) => {
-                    let bytes = (*val as u32).to_le_bytes();
-                    target.extend_from_slice(&bytes);
-                    pos[section as usize] += 4;
-                  }
-                  Arg::Label(label) => {
-                    // If label defined locally, emit absolute offset, else create relocation
-                    if let Some((lab_section, lab_offset)) = self.labels.get(label) {
-                      // if *lab_section != section {
-                      //   // Cross-section reference: emit relocation!
-                      //   let symbol_idx = self.symbol_table.iter()
-                      //     .position(|s| s.name == *label)
-                      //     .expect("Reloc symbol must be in symbol table");
-                      //   let patch_offset = pos[section as usize];
-                      //   self.relocations.push(RelocationEntry {
-                      //     offset: patch_offset,
-                      //     symbol_index: symbol_idx as u32,
-                      //     reloc_type: RelocationType::Absolute,
-                      //   });
-                      //   target.extend_from_slice(&0u32.to_le_bytes());
-                      // } else {
-                      //   // Same-section (e.g. code->code): can resolve directly
-                      //   let val = *lab_offset;
-                      //   target.extend_from_slice(&val.to_le_bytes());
-                      // }
-                      // pos[section as usize] += 4;
-                      let symbol_idx = self.symbol_table.iter()
-                        .position(|s| s.name == *label)
-                        .expect("Reloc symbol must be in symbol table");
-                      let patch_offset = pos[section as usize];
-                      self.relocations.push(RelocationEntry {
-                        offset: patch_offset,
-                        symbol_index: symbol_idx as u32,
-                        reloc_type: RelocationType::Absolute,
-                        target_section: section,
-                      });
-                      target.extend_from_slice(&0u32.to_le_bytes());
-                      pos[section as usize] += 4;
-                    } else {
-                      // Create relocation for external/unresolved symbol
-                      info!("🗒️ Creating relocation for unresolved label: {}", label);
-                      info!("🗒️ Symbol Table: {:?}", self.symbol_table);
-                      info!("🗒️ Section: {}, Current Position: {}", section, pos[section as usize]);
-                      let symbol_idx = self.symbol_table.iter()
-                        .position(|s| s.name == *label)
-                        .expect("Reloc symbol must be in symbol table");
-                      let patch_offset = pos[section as usize];
-                      self.relocations.push(RelocationEntry {
-                        offset: patch_offset,
-                        symbol_index: symbol_idx as u32,
-                        reloc_type: RelocationType::Absolute, // todo: should I change if I want Relatives for JMP/JNZ etc.
-                        target_section: section,
-                      });
-                      target.extend_from_slice(&0u32.to_le_bytes());
-                    }
-                    pos[section as usize] += 4;
-                  }
-                  Arg::Mem(inner) => {
-                    // For now, always encode as the address (could be reg or label)
-                    match &**inner {
-                      Arg::Register(name) => {
-                        let reg = Self::reg_number(name);
-                        let mut bytes = [0u8; 4];
-                        bytes[0] = reg;
-                        // Set a high bit or marker in the opcode if needed
-                        target.extend_from_slice(&bytes);
-                        pos[section as usize] += 4;
-                      }
-                      Arg::Label(label) => {
-                        // Memory deref to a static label address
-                        if let Some((lab_section, lab_offset)) = self.labels.get(label) {
-                          let val = *lab_offset;
-                          target.extend_from_slice(&val.to_le_bytes());
-                        } else {
-                          // Relocation needed
-                          let symbol_idx = self.symbol_table.iter()
-                            .position(|s| s.name == *label)
-                            .expect("Reloc symbol must be in symbol table");
-                          let patch_offset = pos[section as usize];
-                          self.relocations.push(RelocationEntry {
-                            offset: patch_offset,
-                            symbol_index: symbol_idx as u32,
-                            reloc_type: RelocationType::Absolute,
-                            target_section: section,
-                          });
-                          target.extend_from_slice(&0u32.to_le_bytes());
-                        }
-                        pos[section as usize] += 4;
-                      }
-                      Arg::Immediate(val) => {
-                        // probably don't want to allow [42], but we *could* encode it:
-                        let bytes = (*val as u32).to_le_bytes();
-                        target.extend_from_slice(&bytes);
-                        pos[section as usize] += 4;
-                      }
-                      Arg::Mem(_) => panic!("Nested memory deref not supported: [[reg]]"),
-                    }
-                  }
-                }
+          // Determine the actual opcode to emit (e.g. LOAD -> LOADI if using label/imm)
+          let target_opcode = if args.len() >= 2 {
+            match (opcode, &args[1]) {
+              (OpCode::Load, Arg::Mem(inner)) => match &**inner { Arg::Register(_) => OpCode::Load, _ => OpCode::Loadi },
+              (OpCode::Store, Arg::Mem(inner)) => match &**inner { Arg::Register(_) => OpCode::Store, _ => OpCode::Storei },
+              _ => opcode.clone(),
+            }
+          } else {
+            opcode.clone()
+          };
+
+          instr_bytes.push(OpCode::opcode_to_byte(&target_opcode));
+          let mut current_instr_pos = pos[section as usize] + 1;
+
+          match target_opcode {
+            // Three register args: OP r1, r2, r3
+            OpCode::Add | OpCode::Sub | OpCode::Mul | OpCode::Div |
+            OpCode::And | OpCode::Or | OpCode::Xor => {
+              for i in 0..3 {
+                Self::append_arg(&mut self.relocations, &mut self.symbol_table, &mut instr_bytes, &args[i], section, &mut current_instr_pos);
               }
             }
+            // Two register args: OP r1, r2
+            OpCode::Mov | OpCode::Load | OpCode::Store | OpCode::Not | OpCode::Jz | OpCode::Jnz | OpCode::Movi | OpCode::Loadi | OpCode::Storei => {
+              for i in 0..2 {
+                Self::append_arg(&mut self.relocations, &mut self.symbol_table, &mut instr_bytes, &args[i], section, &mut current_instr_pos);
+              }
+            }
+            // One immediate/label: OP imm/label
+            OpCode::Jmp | OpCode::Call | OpCode::Push | OpCode::Pop => {
+              Self::append_arg(&mut self.relocations, &mut self.symbol_table, &mut instr_bytes, &args[0], section, &mut current_instr_pos);
+            }
+            // No args: OP
+            OpCode::Ret | OpCode::Syscall | OpCode::Halt | OpCode::Nop | OpCode::Break => {
+              // No arguments to emit
+            }
+            OpCode::Invalid => {}
           }
+
+          self.append_to_section(section, &instr_bytes);
+          pos[section as usize] = current_instr_pos;
         }
+      }
+    }
+  }
+
+  fn append_to_section(&mut self, section: u8, bytes: &[u8]) {
+    match section {
+      0 => self.code.extend_from_slice(bytes),
+      1 => self.data.extend_from_slice(bytes),
+      2 => self.rodata.extend_from_slice(bytes),
+      _ => unreachable!(),
+    }
+  }
+
+  fn append_arg(relocations: &mut Vec<RelocationEntry>, symbol_table: &mut Vec<SymbolEntry>, buffer: &mut Vec<u8>, arg: &Arg, section: u8, pos: &mut u32) {
+    match arg {
+      Arg::Register(name) => {
+        let reg = Self::reg_number(name);
+        buffer.extend_from_slice(&[reg, 0, 0, 0]);
+        *pos += 4;
+      }
+      Arg::Immediate(val) => {
+        buffer.extend_from_slice(&(*val as u32).to_le_bytes());
+        *pos += 4;
+      }
+      Arg::Label(label) => {
+        let symbol_idx = symbol_table.iter()
+          .position(|s| s.name == *label)
+          .expect(&format!("Reloc symbol '{}' must be in symbol table", label));
+        let patch_offset = *pos;
+        relocations.push(RelocationEntry {
+          offset: patch_offset,
+          symbol_index: symbol_idx as u32,
+          reloc_type: RelocationType::Absolute,
+          target_section: section,
+        });
+        buffer.extend_from_slice(&0u32.to_le_bytes());
+        *pos += 4;
+      }
+      Arg::Mem(inner) => {
+        Self::append_arg(relocations, symbol_table, buffer, inner, section, pos);
       }
     }
   }
