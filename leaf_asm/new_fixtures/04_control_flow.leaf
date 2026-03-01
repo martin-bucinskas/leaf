@@ -1,0 +1,43 @@
+.text
+main:
+    MOVI r1, 10
+    MOVI r2, 0
+    
+    ; Test JMP
+    JMP target1
+    MOVI r2, 1 ; Should be skipped
+    
+target1:
+    ; Test JZ (Jump if Zero)
+    MOVI r3, 0
+    JZ r3, target2
+    MOVI r2, 2 ; Should be skipped
+
+target2:
+    ; Test JNZ (Jump if Not Zero)
+    MOVI r4, 5
+    JNZ r4, target3
+    MOVI r2, 3 ; Should be skipped
+
+target3:
+    ; Test JZ not jumping
+    MOVI r5, 1
+    JZ r5, fail
+    
+    ; Test JNZ not jumping
+    MOVI r6, 0
+    JNZ r6, fail
+
+    ; Success
+    MOVI r1, 100
+    MOV r1, r1
+    MOVI r0, 2
+    SYSCALL
+    HALT
+
+fail:
+    MOVI r1, 999
+    MOV r1, r1
+    MOVI r0, 2
+    SYSCALL
+    HALT

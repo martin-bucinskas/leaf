@@ -1,0 +1,44 @@
+.data
+var1: .word 100
+var2: .word 0
+
+.text
+main:
+    ; Test LOADI and STOREI with labels
+    MOVI r1, var1
+    LOADI r2, r1       ; r2 = [var1] = 100
+    
+    MOVI r3, 500
+    MOVI r4, var2
+    STOREI r3, r4      ; [var2] = 500
+    
+    LOADI r5, r4       ; r5 = [var2] = 500
+    
+    ; Test LOAD and STORE with register indirect
+    MOVI r6, var1      ; r6 points to var1
+    LOAD r7, [r6]      ; r7 = 100
+    
+    MOVI r8, var2      ; r8 points to var2
+    MOVI r9, 999
+    STORE r9, [r8]     ; [var2] = 999
+    
+    LOAD r10, [r8]     ; r10 = 999
+
+    ; Print results
+    MOV r1, r2
+    MOVI r0, 2
+    SYSCALL ; Should print 100
+
+    MOV r1, r5
+    MOVI r0, 2
+    SYSCALL ; Should print 500
+
+    MOV r1, r7
+    MOVI r0, 2
+    SYSCALL ; Should print 100
+
+    MOV r1, r10
+    MOVI r0, 2
+    SYSCALL ; Should print 999
+
+    HALT

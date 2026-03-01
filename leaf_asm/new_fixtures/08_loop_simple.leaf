@@ -1,0 +1,23 @@
+.text
+main:
+    ; Loop from 1 to 5, printing each number
+    MOVI r1, 1      ; counter
+    MOVI r2, 5      ; limit
+    MOVI r3, 1      ; increment
+    
+loop:
+    ; Print counter
+    MOV r1, r1
+    MOVI r0, 2
+    SYSCALL
+    
+    ; if counter == limit, exit
+    SUB r4, r1, r2
+    JZ r4, end
+    
+    ; counter += 1
+    ADD r1, r1, r3
+    JMP loop
+    
+end:
+    HALT

@@ -1,0 +1,20 @@
+.text
+main:
+    ; Test MOVI (Move Immediate)
+    MOVI r1, 1234
+    MOVI r2, 5678
+    
+    ; Test MOV (Move Register)
+    MOV r3, r1
+    MOV r4, r2
+    
+    ; Verify values using SYSCALL 2
+    MOV r1, r3
+    MOVI r0, 2
+    SYSCALL ; Print 1234
+    
+    MOV r1, r4
+    MOVI r0, 2
+    SYSCALL ; Print 5678
+    
+    HALT

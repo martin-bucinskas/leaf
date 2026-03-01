@@ -1,0 +1,26 @@
+.text
+main:
+    ; Calculate factorial of 5 (5 * 4 * 3 * 2 * 1)
+    MOVI r1, 5    ; result
+    MOVI r2, 4    ; multiplier (n-1)
+    MOVI r3, 1    ; terminator
+
+loop:
+    JZ r2, end     ; if multiplier == 0, done (shouldn't happen with 1 as terminator, but safety)
+    SUB r4, r2, r3 ; check if r2 == 1? No, we can just multiply until 1
+    
+    MUL r1, r1, r2 ; r1 = r1 * r2
+    
+    MOVI r5, 1
+    SUB r2, r2, r5 ; n = n - 1
+    
+    JZ r2, end     ; if r2 is 0, we are done
+    JMP loop
+
+end:
+    ; Print result (r1)
+    MOV r1, r1
+    MOVI r0, 2
+    SYSCALL
+    
+    HALT

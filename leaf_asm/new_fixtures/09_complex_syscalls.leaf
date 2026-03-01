@@ -1,0 +1,94 @@
+.data
+msg: .string "Writing to a file via syscalls!\n"
+filename: .string "test_syscall.txt"
+done_msg: .string "File written and closed.\n"
+read_msg: .string "Read from file: "
+alloc_msg: .string "Allocated memory.\n"
+
+.text
+main:
+    ; 1. Allocate some memory for reading back
+    MOVI r0, 8          ; Syscall 8: ALLOC
+    MOVI r1, 100        ; 100 bytes
+    SYSCALL
+    MOV r10, r0         ; Save allocated buffer pointer in r10
+
+    MOVI r0, 1          ; Syscall 1: PRINT_STR
+    MOVI r1, alloc_msg
+    SYSCALL
+
+    ; 2. Open file for writing
+    MOVI r0, 6          ; Syscall 6: OPEN
+    MOVI r1, filename
+    MOVI r2, 1          ; Flag 1: Write/Create/Truncate
+    SYSCALL
+    MOV r11, r0         ; Save FD in r11
+
+    ; Check if FD is -1
+    MOVI r20, 1
+    NOT r20, r20        ; r20 = -2 (not quite -1)
+    ; Actually, let's just check if it's 0xFFFFFFFFFFFFFFFF
+    ; But we don't have easy way to check < 0 without signed jumps.
+    ; For now assume it works if > 2.
+
+    ; 3. Write to file
+    MOVI r0, 5          ; Syscall 5: WRITE
+    MOV r1, r11         ; fd
+    MOVI r2, msg        ; buffer
+    MOVI r3, 31         ; count (length of msg)
+    SYSCALL
+
+    ; 4. Close file
+    MOVI r0, 7          ; Syscall 7: CLOSE
+    MOV r1, r11         ; fd
+    SYSCALL
+
+    MOVI r0, 1          ; Syscall 1: PRINT_STR
+    MOVI r1, done_msg
+    SYSCALL
+
+    ; 5. Open file for reading
+    MOVI r0, 6          ; Syscall 6: OPEN
+    MOVI r1, filename
+    MOVI r2, 0          ; Flag 0: Read
+    SYSCALL
+    MOV r11, r0         ; Save FD in r11
+
+    ; 6. Read from file into allocated buffer
+    MOVI r0, 4          ; Syscall 4: READ
+    MOV r1, r11         ; fd
+    MOV r2, r10         ; buffer (allocated)
+    MOVI r3, 100        ; count
+    SYSCALL
+    MOV r12, r0         ; bytes read
+
+    ; 7. Print what we read
+    MOVI r0, 1          ; Syscall 1: PRINT_STR
+    MOVI r1, read_msg
+    SYSCALL
+
+    ; Null terminate the read buffer for PRINT_STR
+    ; ADD r13, r10, r12   ; pointer to end of read data
+    ; MOVI r14, 0
+    ; STORE r14, [r13]    ; Store 0 (null terminator) - but STORE stores 8 bytes...
+    ; actually, let's just use WRITE to stdout to be safer
+    
+    MOVI r0, 5          ; Syscall 5: WRITE
+    MOVI r1, 1          ; stdout
+    MOV r2, r10         ; buffer
+    MOV r3, r12         ; count
+    SYSCALL
+
+    ; 8. Close file
+    MOVI r0, 7          ; Syscall 7: CLOSE
+    MOV r1, r11         ; fd
+    SYSCALL
+
+    ; 9. Get time
+    MOVI r0, 10         ; Syscall 10: TIME
+    SYSCALL
+    MOV r1, r0          ; move time to r1
+    MOVI r0, 2          ; Syscall 2: PRINT_INT
+    SYSCALL
+
+    HALT

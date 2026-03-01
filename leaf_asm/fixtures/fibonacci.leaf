@@ -1,0 +1,85 @@
+.data
+N:       .word 10        ; how many fibonacci numbers
+fib:     .word 0 0 0 0 0 0 0 0 0 0  ; output array for N values
+
+.text
+main:
+    ; r11 = ptr to fib
+    MOVI r11, fib
+
+    ; r12 = N
+    MOVI r12, N
+    LOAD r12, [r12]
+
+    ; Initialize first two Fibonacci numbers
+    MOVI r13, 0         ; fib[0]
+    STORE r13, [r11]
+
+    MOVI r13, 1         ; fib[1]
+    MOVI r14, 8
+    ADD r15, r11, r14   ; r15 = &fib[1]
+    STORE r13, [r15]
+
+    ; Print fib[0]
+    MOVI r13, 0
+    MOV r1, r13
+    MOVI r0, 2
+    SYSCALL
+
+    ; Print fib[1]
+    MOVI r13, 1
+    MOV r1, r13
+    MOVI r0, 2
+    SYSCALL
+
+    MOVI r10, 2         ; i = 2
+
+loop:
+    ; if i == N, break
+    SUB r16, r10, r12
+    JZ r16, end         ; if i - N == 0, done
+
+    ; fib[i] = fib[i-1] + fib[i-2]
+    ; r17 = (i-1)*8
+    MOVI r17, 1
+    MOV r18, r10
+    SUB r18, r18, r17       ; r18 = i-1
+    MOVI r19, 8
+    MUL r18, r18, r19       ; (i-1)*8
+
+    ADD r18, r11, r18       ; &fib[i-1]
+    LOAD r18, [r18]         ; r18 = fib[i-1]
+
+    ; r20 = (i-2)*8
+    MOVI r20, 2
+    MOV r21, r10
+    SUB r21, r21, r20       ; i-2
+    MOVI r22, 8
+    MUL r21, r21, r22       ; (i-2)*8
+
+    ADD r21, r11, r21       ; &fib[i-2]
+    LOAD r21, [r21]         ; r21 = fib[i-2]
+
+    ADD r23, r18, r21       ; fib[i-1] + fib[i-2]
+
+    ; r24 = i*8
+    MOV r24, r10
+    MOVI r25, 8
+    MUL r24, r24, r25
+    ADD r24, r11, r24       ; &fib[i]
+
+    STORE r23, [r24]         ; fib[i] = sum
+
+    ; Print it
+    MOV r1, r23
+    MOVI r0, 2
+    SYSCALL
+
+    ; i += 1
+    MOVI r26, 1
+    ADD r10, r10, r26
+
+    JMP loop
+
+end:
+    HALT

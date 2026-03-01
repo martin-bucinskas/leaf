@@ -109,7 +109,7 @@ The symbol table at offset 64 contains one or more symbol entries as described a
 ## 5. References
 
 - [LDR-001: Assembly File Format Layout](ldr-001-assembly-file-format-layout.md)
-- [assembler.rs](../leaf-asm/src/assembler.rs)
+- [assembler.rs](../leaf_asm/src/assembler.rs)
 
 ---
 

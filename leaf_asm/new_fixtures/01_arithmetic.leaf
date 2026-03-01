@@ -1,0 +1,68 @@
+.text
+main:
+    ; Addition: r1 = 10 + 20 = 30
+    MOVI r1, 10
+    MOVI r2, 20
+    ADD r3, r1, r2
+
+    ; Subtraction: r4 = 50 - 15 = 35
+    MOVI r4, 50
+    MOVI r5, 15
+    SUB r6, r4, r5
+
+    ; Multiplication: r7 = 7 * 8 = 56
+    MOVI r7, 7
+    MOVI r8, 8
+    MUL r9, r7, r8
+
+    ; Division: r10 = 100 / 4 = 25
+    MOVI r10, 100
+    MOVI r11, 4
+    DIV r12, r10, r11
+
+    ; Bitwise AND: r13 = 0xF0 & 0x0F = 0x00
+    MOVI r13, 240 ; 0xF0
+    MOVI r14, 15  ; 0x0F
+    AND r15, r13, r14
+
+    ; Bitwise OR: r16 = 0xF0 | 0x0F = 0xFF (255)
+    OR r17, r13, r14
+
+    ; Bitwise XOR: r18 = 0xFF ^ 0xF0 = 0x0F (15)
+    MOVI r18, 255
+    XOR r19, r18, r13
+
+    ; Bitwise NOT: r20 = ~0
+    MOVI r20, 0
+    NOT r21, r20
+
+    ; Print results using Syscall 2 (Print integer in r1)
+    MOV r1, r3
+    MOVI r0, 2
+    SYSCALL ; Print 30
+
+    MOV r1, r6
+    MOVI r0, 2
+    SYSCALL ; Print 35
+
+    MOV r1, r9
+    MOVI r0, 2
+    SYSCALL ; Print 56
+
+    MOV r1, r12
+    MOVI r0, 2
+    SYSCALL ; Print 25
+
+    MOV r1, r15
+    MOVI r0, 2
+    SYSCALL ; Print 0
+
+    MOV r1, r17
+    MOVI r0, 2
+    SYSCALL ; Print 255
+
+    MOV r1, r19
+    MOVI r0, 2
+    SYSCALL ; Print 15
+
+    HALT
