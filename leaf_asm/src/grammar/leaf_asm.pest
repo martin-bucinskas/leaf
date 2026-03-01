@@ -17,6 +17,7 @@ label_prefix = { ident ~ ":" }
 opcode = _{
       "ADD" | "SUB" | "MUL" | "DIV"
     | "AND" | "OR" | "XOR" | "NOT"
+    | "LT" | "GT" | "EQ"
     | "JMP" | "JZ" | "JNZ"
     | "MOVI" | "LOADI" | "STOREI"
     | "MOV" | "LOAD" | "STORE"

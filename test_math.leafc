@@ -1,0 +1,48 @@
+include @std/math;
+
+fn main() -> int {
+    int a = 0 - 10;
+    int b = abs(a);
+    print(b); // Should be 10
+
+    int c = 2;
+    int d = 10;
+    int e = pow(c, d);
+    print(e); // Should be 1024
+
+    int f = max(b, e);
+    print(f); // Should be 1024
+
+    int g = min(b, e);
+    print(g); // Should be 10
+
+    if (b == 10) {
+        print(1); // True
+    } else {
+        print(0);
+    }
+
+    if (b != 10) {
+        print(0);
+    } else {
+        print(1); // True
+    }
+
+    if (b < 20) {
+        print(1); // True
+    }
+
+    if (b > 5) {
+        print(1); // True
+    }
+
+    if (b <= 10) {
+        print(1); // True
+    }
+
+    if (b >= 10) {
+        print(1); // True
+    }
+
+    return 0;
+}

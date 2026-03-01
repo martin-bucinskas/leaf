@@ -211,7 +211,8 @@ impl Assembler {
           match target_opcode {
             // Three register args: OP r1, r2, r3
             OpCode::Add | OpCode::Sub | OpCode::Mul | OpCode::Div |
-            OpCode::And | OpCode::Or | OpCode::Xor => {
+            OpCode::And | OpCode::Or | OpCode::Xor |
+            OpCode::Lt | OpCode::Gt | OpCode::Eq => {
               for i in 0..3 {
                 Self::append_arg(&mut self.relocations, &mut self.symbol_table, &mut instr_bytes, &args[i], section, &mut current_instr_pos);
               }

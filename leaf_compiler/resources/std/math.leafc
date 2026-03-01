@@ -1,0 +1,33 @@
+fn abs(int n) -> int {
+    if (n < 0) {
+        return 0 - n;
+    } else {
+        return n;
+    }
+}
+
+fn min(int a, int b) -> int {
+    if (a < b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+fn max(int a, int b) -> int {
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+fn pow(int base, int exp) -> int {
+    int res = 1;
+    int i = 0;
+    while (i < exp) {
+        res = res * base;
+        i = i + 1;
+    }
+    return res;
+}

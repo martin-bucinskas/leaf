@@ -2,6 +2,7 @@
 pub enum OpCode {
   Add, Mul, Sub, Div,
   And, Or, Xor, Not,
+  Lt, Gt, Eq,
   Jmp, Jz, Jnz,
   Mov, Load, Store,
   Movi, Loadi, Storei,
@@ -55,6 +56,9 @@ impl OpCode {
       OpCode::Or => 0x06,
       OpCode::Xor => 0x07,
       OpCode::Not => 0x08,
+      OpCode::Lt => 0x19,
+      OpCode::Gt => 0x1A,
+      OpCode::Eq => 0x1B,
       OpCode::Jmp => 0x09,
       OpCode::Jz => 0x0A,
       OpCode::Jnz => 0x0B,
@@ -102,6 +106,9 @@ impl OpCode {
       0x16 => Some(OpCode::Movi),
       0x17 => Some(OpCode::Loadi),
       0x18 => Some(OpCode::Storei),
+      0x19 => Some(OpCode::Lt),
+      0x1A => Some(OpCode::Gt),
+      0x1B => Some(OpCode::Eq),
       _ => None,
     }
   }

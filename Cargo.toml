@@ -2,6 +2,6 @@
 members = [
     "leaf_asm",
     "leaf_vm",
-    "leaf_common",
+    "leaf_common", "leaf_compiler",
 ]
 resolver = "3"

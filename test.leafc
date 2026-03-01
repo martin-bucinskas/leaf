@@ -1,0 +1,7 @@
+fn main() -> int {
+    int x = 123;
+    int y = 456;
+    int z = x + y;
+    print(z);
+    return 0;
+}

@@ -5,6 +5,7 @@ A custom 64-bit Virtual Machine (VM) and a corresponding Assembler/Linker toolch
 ## Project Structure
 
 - `leaf_common`: Shared data structures, file format definitions (`.leafobj`, `.leafexe`), and the AST.
+- `leaf_compiler`: The high-level language compiler that produces Leaf Assembly from `.leafc` files.
 - `leaf_asm`: The toolchain for assembling source files into objects and linking them into executable binaries.
 - `leaf_vm`: The execution engine that loads and runs `.leafexe` binaries.
 
@@ -37,6 +38,28 @@ Execute the binary using the Leaf VM.
 # Note: Ensure the path in leaf_vm/src/main.rs points to your generated .leafexe
 cargo run -p leaf_vm
 ```
+
+## High-Level Language: LeafC
+
+The `leaf_compiler` allows you to write programs in a C/Python hybrid syntax and compile them to Leaf Assembly.
+
+### 1. Create a `.leafc` source file
+```leaf
+fn main() -> int {
+    int x = 123;
+    int y = 456;
+    print(x + y);
+    return 0;
+}
+```
+
+### 2. Compile to Assembly
+```powershell
+cargo run -p leaf_compiler -- --input my_program.leafc --output my_program.leaf
+```
+
+### 3. Build and Run
+Follow the Assembly and Linking steps above to generate a `.leafexe` and run it in the VM.
 
 ## Instruction Set Overview
 
@@ -73,6 +96,22 @@ Detailed design decisions and architecture specifications are documented in the 
 - [LDR-004: Memory Management, Stack, and Word Size](adr/ldr-004-memory-and-stack.md)
 - [LDR-005: Register File and System State](adr/ldr-005-register-file-and-syscalls.md)
 - [LDR-006: Expanded Syscall Interface](adr/ldr-006-expanded-syscall-interface.md)
+- [LDR-007: Leaf High-Level Language Specification](adr/ldr-007-leaf-high-level-language-specification.md)
+
+## Standard Library
+
+Leaf includes a basic standard library.
+- `@std/math`: Basic mathematical functions (`abs`, `min`, `max`, `pow`).
+
+Example usage:
+```leaf
+include @std/math;
+
+fn main() -> int {
+    print(pow(2, 10));
+    return 0;
+}
+```
 
 ## Binary Format
 

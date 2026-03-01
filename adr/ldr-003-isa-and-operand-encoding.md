@@ -37,6 +37,9 @@ We define a fixed-operand encoding for the Leaf VM. Each instruction consists of
 | 0x06 | `OR` | 3 | `rd, rs1, rs2` -> `rd = rs1 \| rs2` |
 | 0x07 | `XOR` | 3 | `rd, rs1, rs2` -> `rd = rs1 ^ rs2` |
 | 0x08 | `NOT` | 2 | `rd, rs1` -> `rd = ~rs1` |
+| 0x19 | `LT` | 3 | `rd, rs1, rs2` -> `rd = rs1 < rs2 ? 1 : 0` |
+| 0x1A | `GT` | 3 | `rd, rs1, rs2` -> `rd = rs1 > rs2 ? 1 : 0` |
+| 0x1B | `EQ` | 3 | `rd, rs1, rs2` -> `rd = rs1 == rs2 ? 1 : 0` |
 | 0x09 | `JMP` | 1 | `addr` -> `pc = addr` |
 | 0x0A | `JZ` | 2 | `rs1, addr` -> `if rs1 == 0, pc = addr` |
 | 0x0B | `JNZ` | 2 | `rs1, addr` -> `if rs1 != 0, pc = addr` |

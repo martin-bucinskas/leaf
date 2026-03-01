@@ -196,6 +196,33 @@ impl VM {
         self.set_reg(r1, v2 / v3);
         self.pc += 13;
       }
+      OpCode::Lt => {
+        let r1 = self.fetch_reg(self.pc + 1);
+        let r2 = self.fetch_reg(self.pc + 5);
+        let r3 = self.fetch_reg(self.pc + 9);
+        let v2 = self.registers[r2] as i64;
+        let v3 = self.registers[r3] as i64;
+        self.set_reg(r1, if v2 < v3 { 1 } else { 0 });
+        self.pc += 13;
+      }
+      OpCode::Gt => {
+        let r1 = self.fetch_reg(self.pc + 1);
+        let r2 = self.fetch_reg(self.pc + 5);
+        let r3 = self.fetch_reg(self.pc + 9);
+        let v2 = self.registers[r2] as i64;
+        let v3 = self.registers[r3] as i64;
+        self.set_reg(r1, if v2 > v3 { 1 } else { 0 });
+        self.pc += 13;
+      }
+      OpCode::Eq => {
+        let r1 = self.fetch_reg(self.pc + 1);
+        let r2 = self.fetch_reg(self.pc + 5);
+        let r3 = self.fetch_reg(self.pc + 9);
+        let v2 = self.registers[r2];
+        let v3 = self.registers[r3];
+        self.set_reg(r1, if v2 == v3 { 1 } else { 0 });
+        self.pc += 13;
+      }
       OpCode::And => {
         let r1 = self.fetch_reg(self.pc + 1);
         let r2 = self.fetch_reg(self.pc + 5);

@@ -1,0 +1,55 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{ ("//" ~ (!"\n" ~ ANY)*) | ("/*" ~ (!"*/" ~ ANY)* ~ "*/") }
+
+program = { SOI ~ (include_stmt | function | global_var)* ~ EOI }
+
+include_stmt = { "include" ~ include_path ~ ";" }
+include_path = { "@std/" ~ identifier | string_lit }
+
+// Types
+type_name = { "int" | "str" | "bool" | "void" }
+
+// Variables
+global_var = { type_name ~ identifier ~ "=" ~ expression ~ ";" }
+local_var  = { type_name ~ identifier ~ ("=" ~ expression)? ~ ";" }
+
+// Functions
+function = { "fn" ~ identifier ~ "(" ~ (parameter ~ ("," ~ parameter)*)? ~ ")" ~ ("->" ~ type_name)? ~ block }
+parameter = { type_name ~ identifier }
+
+// Blocks and Statements
+block = { "{" ~ statement* ~ "}" }
+statement = {
+    local_var
+    | if_stmt
+    | while_stmt
+    | return_stmt
+    | (assignment ~ ";")
+    | (expression ~ ";")
+}
+
+assignment = { identifier ~ "=" ~ expression }
+
+if_stmt = { "if" ~ "(" ~ expression ~ ")" ~ block ~ ("else" ~ block)? }
+while_stmt = { "while" ~ "(" ~ expression ~ ")" ~ block }
+return_stmt = { "return" ~ expression? ~ ";" }
+
+// Expressions (Pratt-like or simplified precedence)
+expression = { term ~ (binary_op ~ term)* }
+term = {
+    literal
+    | function_call
+    | identifier
+    | "(" ~ expression ~ ")"
+}
+
+binary_op = { "<=" | ">=" | "==" | "!=" | "&&" | "||" | "+" | "-" | "*" | "/" | "<" | ">" }
+
+function_call = { identifier ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
+
+literal = { string_lit | number_lit | bool_lit }
+string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+number_lit = @{ "-"? ~ ASCII_DIGIT+ }
+bool_lit   = { "true" | "false" }
+
+identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }

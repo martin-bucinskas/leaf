@@ -1,0 +1,310 @@
+.data
+
+.text
+abs:
+    PUSH r1
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r0, 0
+    POP r30
+    LT r0, r30, r0
+    JZ r0, else_0
+    MOVI r0, 0
+    PUSH r0
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    POP r30
+    SUB r0, r30, r0
+    MOVI r31, 8
+    ADD r15, r15, r31
+    RET
+    JMP endif_1
+else_0:
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    MOVI r31, 8
+    ADD r15, r15, r31
+    RET
+endif_1:
+    MOVI r31, 8
+    ADD r15, r15, r31
+    RET
+min:
+    PUSH r1
+    PUSH r2
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    POP r30
+    LT r0, r30, r0
+    JZ r0, else_2
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    MOVI r31, 16
+    ADD r15, r15, r31
+    RET
+    JMP endif_3
+else_2:
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    MOVI r31, 16
+    ADD r15, r15, r31
+    RET
+endif_3:
+    MOVI r31, 16
+    ADD r15, r15, r31
+    RET
+max:
+    PUSH r1
+    PUSH r2
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    POP r30
+    GT r0, r30, r0
+    JZ r0, else_4
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    MOVI r31, 16
+    ADD r15, r15, r31
+    RET
+    JMP endif_5
+else_4:
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    MOVI r31, 16
+    ADD r15, r15, r31
+    RET
+endif_5:
+    MOVI r31, 16
+    ADD r15, r15, r31
+    RET
+pow:
+    PUSH r1
+    PUSH r2
+    MOVI r0, 1
+    PUSH r0
+    MOVI r0, 0
+    PUSH r0
+while_start_6:
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r31, 24
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    POP r30
+    LT r0, r30, r0
+    JZ r0, while_end_7
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r31, 32
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    POP r30
+    MUL r0, r30, r0
+    MOVI r31, 8
+    ADD r31, r15, r31
+    STORE r0, [r31]
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r0, 1
+    POP r30
+    ADD r0, r30, r0
+    MOVI r31, 0
+    ADD r31, r15, r31
+    STORE r0, [r31]
+    JMP while_start_6
+while_end_7:
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    MOVI r31, 32
+    ADD r15, r15, r31
+    RET
+    MOVI r31, 32
+    ADD r15, r15, r31
+    RET
+main:
+    MOVI r0, 0
+    PUSH r0
+    MOVI r0, 10
+    POP r30
+    SUB r0, r30, r0
+    PUSH r0
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r1, [r31]
+    CALL abs
+    PUSH r0
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r1, [r31]
+    MOVI r0, 2
+    SYSCALL
+    MOVI r0, 2
+    PUSH r0
+    MOVI r0, 10
+    PUSH r0
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r1, [r31]
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r2, [r31]
+    CALL pow
+    PUSH r0
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r1, [r31]
+    MOVI r0, 2
+    SYSCALL
+    MOVI r31, 24
+    ADD r31, r15, r31
+    LOAD r1, [r31]
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r2, [r31]
+    CALL max
+    PUSH r0
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r1, [r31]
+    MOVI r0, 2
+    SYSCALL
+    MOVI r31, 32
+    ADD r31, r15, r31
+    LOAD r1, [r31]
+    MOVI r31, 8
+    ADD r31, r15, r31
+    LOAD r2, [r31]
+    CALL min
+    PUSH r0
+    MOVI r31, 0
+    ADD r31, r15, r31
+    LOAD r1, [r31]
+    MOVI r0, 2
+    SYSCALL
+    MOVI r31, 40
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r0, 10
+    POP r30
+    EQ r0, r30, r0
+    JZ r0, else_8
+    MOVI r1, 1
+    MOVI r0, 2
+    SYSCALL
+    JMP endif_9
+else_8:
+    MOVI r1, 0
+    MOVI r0, 2
+    SYSCALL
+endif_9:
+    MOVI r31, 40
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r0, 10
+    POP r30
+    EQ r0, r30, r0
+    MOVI r31, 1
+    XOR r0, r0, r31
+    JZ r0, else_10
+    MOVI r1, 0
+    MOVI r0, 2
+    SYSCALL
+    JMP endif_11
+else_10:
+    MOVI r1, 1
+    MOVI r0, 2
+    SYSCALL
+endif_11:
+    MOVI r31, 40
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r0, 20
+    POP r30
+    LT r0, r30, r0
+    JZ r0, else_12
+    MOVI r1, 1
+    MOVI r0, 2
+    SYSCALL
+    JMP endif_13
+else_12:
+endif_13:
+    MOVI r31, 40
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r0, 5
+    POP r30
+    GT r0, r30, r0
+    JZ r0, else_14
+    MOVI r1, 1
+    MOVI r0, 2
+    SYSCALL
+    JMP endif_15
+else_14:
+endif_15:
+    MOVI r31, 40
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r0, 10
+    POP r30
+    GT r0, r30, r0
+    MOVI r31, 1
+    XOR r0, r0, r31
+    JZ r0, else_16
+    MOVI r1, 1
+    MOVI r0, 2
+    SYSCALL
+    JMP endif_17
+else_16:
+endif_17:
+    MOVI r31, 40
+    ADD r31, r15, r31
+    LOAD r0, [r31]
+    PUSH r0
+    MOVI r0, 10
+    POP r30
+    LT r0, r30, r0
+    MOVI r31, 1
+    XOR r0, r0, r31
+    JZ r0, else_18
+    MOVI r1, 1
+    MOVI r0, 2
+    SYSCALL
+    JMP endif_19
+else_18:
+endif_19:
+    MOVI r0, 0
+    MOVI r31, 56
+    ADD r15, r15, r31
+    HALT
+    MOVI r0, 0
+    HALT
